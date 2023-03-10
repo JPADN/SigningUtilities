@@ -1,9 +1,8 @@
 package org.example;
 
 import java.io.*;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.Security;
+import java.security.*;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -25,94 +24,10 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.util.encoders.Hex;
+import org.example.exceptions.SignatureVerificationException;
+import org.example.exceptions.SigningException;
 
 public class SigningUtilities {
-    private final static String privateKeyPassword = "123456789";
-    private final static String keystoreCertAlias = "f22c0321-1a9a-4877-9295-73092bb9aa94";
-
-    public static void main( String[] args ) throws Exception
-    {
-        Security.addProvider(new BouncyCastleProvider());
-
-        SigningUtilities signingUtils = new SigningUtilities();
-
-        InputStream docFile = signingUtils.getResourceStream("arquivos/doc.txt");
-        byte[] docBytes = docFile.readAllBytes();
-        docFile.close();
-
-        // Etapa 1: Resumo criptográfico
-        etapa1(docBytes);
-
-        // Etapa 2: Realizar uma assinatura digital
-        InputStream pkcs12InputStream = signingUtils.getResourceStream("pkcs12/desafio.p12");
-        byte[] signature = etapa2(docBytes, pkcs12InputStream);
-
-        // Etapa 3: Verificar a assinatura gerada
-        etapa3(signature);
-    }
-
-//	private String getResource(String resourceName) {
-//		String resourcePathString = getClass().getClassLoader().getResource(resourceName).getPath();
-//		System.out.println(resourcePathString);
-//		return resourcePathString;
-//	}
-
-    private InputStream getResourceStream(String resourceName) {
-        InputStream resourceInputStream = getClass().getClassLoader().getResourceAsStream(resourceName);
-        return resourceInputStream;
-    }
-
-
-    public static void etapa1(byte[] data) {
-
-        byte[] digest = SigningUtilities.digestData(data);
-        String digestHexString = Hex.toHexString(digest);
-
-        try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter("output/doc_hex_digest.txt"));
-            System.out.println(digestHexString);
-            writer.write(digestHexString);
-            writer.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static byte[] etapa2(byte[] dataToSign, InputStream pkcs12InputStream) {
-        SignerCertKey signerCertKey = loadCertKeyFromPKCS12(pkcs12InputStream, keystoreCertAlias, privateKeyPassword.toCharArray());
-        X509Certificate signerCertificate = signerCertKey.getX509Certificate();
-        PrivateKey signerKey = signerCertKey.getPrivateKey();
-
-        try {
-            pkcs12InputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-//        signerCertificate.checkValidity();
-        System.out.println(signerKey.toString());
-        System.out.println(signerCertificate.toString());
-        byte[] signature = SigningUtilities.signData(dataToSign, signerKey, signerCertificate);
-
-        try {
-            FileOutputStream outputStream = new FileOutputStream("output/doc_signature.p7s");
-            outputStream.write(signature);
-            outputStream.close();
-            return signature;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public static void etapa3(byte[] signature) {
-        try {
-            SigningUtilities.verifySignature(signature);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     public static byte[] digestData(byte[] data) {
 
@@ -126,34 +41,7 @@ public class SigningUtilities {
         return digested;
     }
 
-//    public static byte[] signData(byte[] data, X509Certificate signingCertificate, PrivateKey signingKey) throws Exception {
-//
-//        byte[] signedMessage = null;
-//
-//        List<X509Certificate> certList= new ArrayList<X509Certificate>();
-//        certList.add(signingCertificate);
-//        Store certs = new JcaCertStore(certList);
-//
-//        CMSTypedData cmsData = new CMSProcessableByteArray(data);
-//
-//        CMSSignedDataGenerator cmsGenerator = new CMSSignedDataGenerator();
-//
-//        try {
-//            ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(signingKey);
-//            cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner, signingCertificate));
-//            cmsGenerator.addCertificates(certs);
-//
-//            // Signing procedure
-//            CMSSignedData cms = cmsGenerator.generate(cmsData, true);
-//            signedMessage = cms.getEncoded();
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//        return signedMessage;
-//    }
-
-    public static byte[] signData(byte[] data, PrivateKey signerKey, X509Certificate signerCertificate) {
+    public static byte[] signData(byte[] data, PrivateKey signerKey, X509Certificate signerCertificate) throws OperatorCreationException, CertificateEncodingException, SigningException {
         List<X509Certificate> certList= new ArrayList<X509Certificate>();
         certList.add(signerCertificate);
 
@@ -163,27 +51,27 @@ public class SigningUtilities {
 
 
         // Operações relacionadas ao CMSSignedDataGenerator
+
+        ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(signerKey);
+        cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner, signerCertificate));
+
+        Store certs = new JcaCertStore(certList);
+
         try {
-            ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(signerKey);
-            cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner, signerCertificate));
-
-            Store certs = new JcaCertStore(certList);
             cmsGenerator.addCertificates(certs);
-
             // Gerando a assinatura de acordo com padrão CMS
             CMSSignedData cms = cmsGenerator.generate(cmsData, true);
-
             // Obtendo representação ASN.1 da assinatura
             signature = cms.getEncoded();
-        } catch (Exception e) {
-            e.printStackTrace();
-            signature = null;
+        } catch (CMSException | IOException e) {
+            throw new SigningException("CMS signature generation failure.", e);
         }
 
         return signature;
     }
 
-    public static boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException, OperatorCreationException {
+    public static boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException,
+            OperatorCreationException, SignatureVerificationException {
 
         X509Certificate signCert = null;
         CMSSignedData cmsSignedData = null;
@@ -204,22 +92,25 @@ public class SigningUtilities {
 
         X509CertificateHolder certHolder = certCollection.iterator().next();
 
-        return signer.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certHolder));
+        try {
+            return signer.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certHolder));
+        } catch (CMSException e) {
+            throw new SignatureVerificationException("An error occurred while verifying the signature.", e);
+        } catch (CertificateException e) {
+            throw e;
+        }
     }
 
-    public static SignerCertKey loadCertKeyFromPKCS12(InputStream pkcs12InputStream, String alias, char[] password) {
-        try {
-            KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            keyStore.load(pkcs12InputStream, password);
+    public static SignerCertKey loadCertKeyFromPKCS12(InputStream pkcs12InputStream, String alias, char[] password) throws
+            NoSuchAlgorithmException, IOException, CertificateException, KeyStoreException, UnrecoverableKeyException {
 
-            // Recuperando a chave privada e o certificado da entidade assinante
-            PrivateKey signerKey = (PrivateKey) keyStore.getKey(alias, password);
-            X509Certificate signerCertificate = (X509Certificate) keyStore.getCertificate(alias);
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(pkcs12InputStream, password);
 
-            return new SignerCertKey(signerCertificate, signerKey);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+        // Recuperando a chave privada e o certificado da entidade assinante
+        PrivateKey signerKey = (PrivateKey) keyStore.getKey(alias, password);
+        X509Certificate signerCertificate = (X509Certificate) keyStore.getCertificate(alias);
+
+        return new SignerCertKey(signerCertificate, signerKey);
     }
 }

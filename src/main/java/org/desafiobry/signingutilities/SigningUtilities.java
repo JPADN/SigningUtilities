@@ -27,6 +27,7 @@ import org.desafiobry.exceptions.SigningException;
 
 public class SigningUtilities {
 
+    // digestData produz um resumo criptográfico de 'data' utilizando o algoritmo SHA-256
     public static byte[] digestData(byte[] data) throws IOException {
 
         SHA256Digest messageDigest = new SHA256Digest();
@@ -39,6 +40,7 @@ public class SigningUtilities {
         return digested;
     }
 
+    // signData assina o conteúdo de 'data' utilizando a chave privada 'signerKey' e o certificado correspondente 'signerCertificate'
     public static byte[] signData(byte[] data, PrivateKey signerKey, X509Certificate signerCertificate) throws OperatorCreationException, CertificateEncodingException, SigningException {
         List<X509Certificate> certList= new ArrayList<X509Certificate>();
         certList.add(signerCertificate);
@@ -49,12 +51,17 @@ public class SigningUtilities {
 
         // Operações relacionadas ao CMSSignedDataGenerator
 
+        // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo RSA (utilizando algoritmo de hash SHA-256) com a chave privada 'signerKey'
         ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(signerKey);
+
+        // Adicionando informações do assinante: o objeto contentSigner (que contém a chave privada signerKey) e o seu certificado 'signerCertificate'.
+        // "BC" corresponde ao Security Provider "Bouncy Castle"
         cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner, signerCertificate));
 
         Store certs = new JcaCertStore(certList);
 
         try {
+            // Adicionando os certificados que serão anexados à assinatura
             cmsGenerator.addCertificates(certs);
             // Gerando a assinatura de acordo com padrão CMS
             CMSSignedData cms = cmsGenerator.generate(cmsData, true);
@@ -67,13 +74,13 @@ public class SigningUtilities {
         return signature;
     }
 
+    // verifySignature verificate a assinatura CMS em data, retornando true para assinaturas válidas e false para assinaturas inválidas.
     public static boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException,
             OperatorCreationException, SignatureVerificationException {
 
-        X509Certificate signCert = null;
-        CMSSignedData cmsSignedData = null;
+        CMSSignedData cmsSignedData;
 
-        // Convertendo signedData para ASN1InputStream
+        // Convertendo byte array para ASN1InputStream
         ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         ASN1InputStream asnInputStream = new ASN1InputStream(inputStream);
 
@@ -82,33 +89,33 @@ public class SigningUtilities {
         // Obtendo todos os assinantes da mensagem assinada cmsSignedData
         SignerInformationStore signers = cmsSignedData.getSignerInfos();
 
-        // Como já espera-se que seja apenas um assinante, não vamos iterar a coleção
+        // Como já espera-se que seja apenas um assinante, não vamos iterar a coleção inteira, apenas vamos recuperar o primeiro elemento desta.
         SignerInformation signer = signers.getSigners().iterator().next();
 
+        // Recuperando o certificado X509 da Store retornada por getCertificates que corresponde ao SID do assinante.
         Collection<X509CertificateHolder> certCollection = cmsSignedData.getCertificates().getMatches(signer.getSID());
 
+        // certHolder é o certificado X509 do assinante.
         X509CertificateHolder certHolder = certCollection.iterator().next();
 
         try {
+            // Fazendo a verificação da assinatura constante no objeto signer (tipo SignerInformation) com o certificado X509 (visto que
+            // este contem a chave pública para verificação).
             return signer.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certHolder));
         } catch (CMSException e) {
             throw new SignatureVerificationException("An error occurred while verifying the signature.", e);
-        } catch (CertificateException e) {
-            throw e;
         }
     }
 
+    // loadCertKeyFromPKCS12 retorna o certificado X509 e a chave privada armazenadas em um arquivo PKCS#12 (cujos bytes estão
+    // em 'pkcs12Bytes') sob o alias 'alias' e protegidos com a senha 'password'.
+    // É retornado um objeto do tipo SignerCertKey, que contém os campos 'x509Certificate' e 'privateKey'.
     public static SignerCertKey loadCertKeyFromPKCS12(byte[] pkcs12Bytes, String alias, char[] password) throws
             NoSuchAlgorithmException, IOException, CertificateException, KeyStoreException, UnrecoverableKeyException {
         InputStream pkcs12InputStream = new ByteArrayInputStream(pkcs12Bytes);
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(pkcs12InputStream, password);
-
-//        Iterator<String> itAliases = keyStore.aliases().asIterator();
-//        while (itAliases.hasNext()) {
-//            System.out.println(itAliases.next());
-//        }
 
         // Recuperando a chave privada e o certificado da entidade assinante
         PrivateKey signerKey = (PrivateKey) keyStore.getKey(alias, password);

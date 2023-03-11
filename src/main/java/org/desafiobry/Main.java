@@ -21,7 +21,9 @@ import java.security.cert.X509Certificate;
 
 public class Main {
 
+    // Senha para acessar o arquivo PKCS#12 contido em resources/pkcs12.
     private final static String privateKeyPassword = "Bry123";
+    // Alias sob o qual a chave privada e o certificado estão armazenados no arquivo PKCS#12.
     private final static String keystoreCertAlias = "4711a752-3249-4207-b039-d2bbeb7df38c";
 
     public static void main( String[] args )
@@ -42,16 +44,6 @@ public class Main {
             System.exit(1);
         }
 
-//        try {
-//            String docFileString = FileUtils.readFileToString(docFile, Charset.defaultCharset());
-//            System.out.println(docFileString);
-//
-//            File digestOutputFile = FileUtils.getFile("output/doc_hex_digest.txt");
-//            FileUtils.writeStringToFile(digestOutputFile, "Teste", Charset.defaultCharset());
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-
         try {
             // Etapa 1: Resumo criptográfico
             etapa1(docBytes);
@@ -62,7 +54,7 @@ public class Main {
 
         try {
             // Etapa 2: Realizar uma assinatura digital
-            signature = etapa2(docBytes, pkcs12Bytes, keystoreCertAlias, privateKeyPassword.toCharArray());
+            signature = etapa2(docBytes, pkcs12Bytes);
             System.out.println("Etapa 2 success!");
         } catch (EtapaDesafioException e) {
             System.out.printf("Etapa 2 error: %s\nEtapa 2 failed. Skipping Etapa 3 due to Etapa 2 error...\nTerminating program.\n\n%n", e.getMessage());
@@ -98,10 +90,10 @@ public class Main {
         }
     }
 
-    private static byte[] etapa2(byte[] fileBytes, byte[] pkcs12Bytes, String keystoreCertAlias, char[] privateKeyPassword) throws EtapaDesafioException {
+    private static byte[] etapa2(byte[] fileBytes, byte[] pkcs12Bytes) throws EtapaDesafioException {
         SignerCertKey signerCertKey;
         try {
-            signerCertKey = SigningUtilities.loadCertKeyFromPKCS12(pkcs12Bytes, keystoreCertAlias, privateKeyPassword);
+            signerCertKey = SigningUtilities.loadCertKeyFromPKCS12(pkcs12Bytes, keystoreCertAlias, privateKeyPassword.toCharArray());
         } catch (IOException e) {
             throw new EtapaDesafioException("Could not load keystore data. Check if the provided file is correct and if" +
                     "password is correct.", e);
@@ -117,8 +109,6 @@ public class Main {
         PrivateKey signerKey = signerCertKey.getPrivateKey();
         byte[] signature;
 
-//        System.out.println(signerKey.toString());
-//        System.out.println(signerCertificate.toString());
         try {
             signature = SigningUtilities.signData(fileBytes, signerKey, signerCertificate);
         } catch (OperatorCreationException e) {
@@ -131,6 +121,7 @@ public class Main {
         }
 
         try {
+            // Escrevendo a assinatura gerada no arquivo output/doc_signature.p7s
             File docSignatureFile = FileUtils.getFile("output/doc_signature.p7s");
             try (FileOutputStream docSignatureOutputStream = FileUtils.openOutputStream(docSignatureFile)) {
                 docSignatureOutputStream.write(signature);
@@ -143,7 +134,12 @@ public class Main {
 
     private static void etapa3(byte[] signature) throws EtapaDesafioException {
         try {
-            SigningUtilities.verifySignature(signature);
+            boolean validSignature = SigningUtilities.verifySignature(signature);
+            if (validSignature) {
+                System.out.println("Etapa 3 result: true");
+            } else {
+                System.out.println("Etapa 3 result: false");
+            }
         } catch (OperatorCreationException e) {
             throw new EtapaDesafioException("Internal error during signature operation.", e);
         } catch (CertificateException e) {
@@ -158,7 +154,10 @@ public class Main {
 
     private byte[] getResourceBytes(String resourceName) throws IOException {
         try (InputStream resourceStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
-            return resourceStream.readAllBytes();
+            if (resourceStream != null) {
+                return resourceStream.readAllBytes();
+            }
+            throw new IOException(String.format("Could not read bytes from %s resource stream", resourceName));
         }
     }
 }

@@ -1,4 +1,4 @@
-package org.example.exceptions;
+package org.desafiobry.exceptions;
 
 public class SigningException extends Exception {
     public SigningException(String errorMessage, Throwable err) {

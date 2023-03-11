@@ -1,4 +1,4 @@
-package org.example;
+package org.desafiobry.signingutilities;
 
 import java.io.*;
 import java.security.*;
@@ -22,8 +22,8 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
-import org.example.exceptions.SignatureVerificationException;
-import org.example.exceptions.SigningException;
+import org.desafiobry.exceptions.SignatureVerificationException;
+import org.desafiobry.exceptions.SigningException;
 
 public class SigningUtilities {
 

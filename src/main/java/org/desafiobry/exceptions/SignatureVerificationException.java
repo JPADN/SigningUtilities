@@ -1,4 +1,4 @@
-package org.example.exceptions;
+package org.desafiobry.exceptions;
 
 public class SignatureVerificationException extends Exception {
     public SignatureVerificationException(String errorMessage, Throwable err) {

@@ -1,4 +1,4 @@
-package org.example;
+package org.desafiobry.signingutilities;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

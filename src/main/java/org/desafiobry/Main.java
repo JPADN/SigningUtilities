@@ -1,13 +1,15 @@
-package org.example;
+package org.desafiobry;
 
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.encoders.Hex;
-import org.example.exceptions.EtapaDesafioException;
-import org.example.exceptions.SignatureVerificationException;
-import org.example.exceptions.SigningException;
+import org.desafiobry.signingutilities.SignerCertKey;
+import org.desafiobry.signingutilities.SigningUtilities;
+import org.desafiobry.exceptions.EtapaDesafioException;
+import org.desafiobry.exceptions.SignatureVerificationException;
+import org.desafiobry.exceptions.SigningException;
 
 import java.io.*;
 import java.io.FileOutputStream;

@@ -1,1 +1,5 @@
-Neste diretório encontram-se os documentos produzidos pela Etapa 1 e 2.
+Este diretório contém arquivos produzidos pelo método main() da classe Main.
+
+Após a execução deste método, os seguintes arquivos serão gerados:
+- `doc_signature.txt`: `doc.txt` assinado
+- `doc_hex_digest`: resumo criptográfico de `dox.txt` em string hexadecimal

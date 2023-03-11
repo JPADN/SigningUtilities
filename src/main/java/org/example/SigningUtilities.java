@@ -17,19 +17,17 @@ import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.crypto.digests.SHA256Digest;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
-import org.bouncycastle.util.encoders.Hex;
 import org.example.exceptions.SignatureVerificationException;
 import org.example.exceptions.SigningException;
 
 public class SigningUtilities {
 
-    public static byte[] digestData(byte[] data) {
+    public static byte[] digestData(byte[] data) throws IOException {
 
         SHA256Digest messageDigest = new SHA256Digest();
 
@@ -48,7 +46,6 @@ public class SigningUtilities {
         CMSTypedData cmsData = new CMSProcessableByteArray(data);
         CMSSignedDataGenerator cmsGenerator = new CMSSignedDataGenerator();
         byte[] signature;
-
 
         // Operações relacionadas ao CMSSignedDataGenerator
 
@@ -101,11 +98,17 @@ public class SigningUtilities {
         }
     }
 
-    public static SignerCertKey loadCertKeyFromPKCS12(InputStream pkcs12InputStream, String alias, char[] password) throws
+    public static SignerCertKey loadCertKeyFromPKCS12(byte[] pkcs12Bytes, String alias, char[] password) throws
             NoSuchAlgorithmException, IOException, CertificateException, KeyStoreException, UnrecoverableKeyException {
+        InputStream pkcs12InputStream = new ByteArrayInputStream(pkcs12Bytes);
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(pkcs12InputStream, password);
+
+//        Iterator<String> itAliases = keyStore.aliases().asIterator();
+//        while (itAliases.hasNext()) {
+//            System.out.println(itAliases.next());
+//        }
 
         // Recuperando a chave privada e o certificado da entidade assinante
         PrivateKey signerKey = (PrivateKey) keyStore.getKey(alias, password);

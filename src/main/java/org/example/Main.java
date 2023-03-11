@@ -10,52 +10,60 @@ import org.example.exceptions.SignatureVerificationException;
 import org.example.exceptions.SigningException;
 
 import java.io.*;
-import java.security.PrivateKey;
-import java.security.Security;
+import java.io.FileOutputStream;
+import java.nio.charset.Charset;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 public class Main {
 
-    private final static String privateKeyPassword = "123456789";
-    private final static String keystoreCertAlias = "f22c0321-1a9a-4877-9295-73092bb9aa94";
+    private final static String privateKeyPassword = "Bry123";
+    private final static String keystoreCertAlias = "4711a752-3249-4207-b039-d2bbeb7df38c";
 
     public static void main( String[] args )
     {
-        byte[] docBytes = null;
         byte[] signature = null;
 
         Security.addProvider(new BouncyCastleProvider());
 
         Main main = new Main();
 
-        InputStream docFile = main.getResourceStream("arquivos/doc.txt");
+        byte[] docBytes = null;
+        byte[] pkcs12Bytes = null;
 
         try {
-            docBytes = docFile.readAllBytes();
-            docFile.close();
+            docBytes = main.getResourceBytes("arquivos/doc.txt");
+            pkcs12Bytes = main.getResourceBytes("pkcs12/desafio.p12");
         } catch (IOException e) {
-            System.out.println(String.format("Could not read doc.txt due to the error: %s\nSkipping all etapas...\nTerminating program.\n\n", e.getMessage()));
             System.exit(1);
         }
+
+//        try {
+//            String docFileString = FileUtils.readFileToString(docFile, Charset.defaultCharset());
+//            System.out.println(docFileString);
+//
+//            File digestOutputFile = FileUtils.getFile("output/doc_hex_digest.txt");
+//            FileUtils.writeStringToFile(digestOutputFile, "Teste", Charset.defaultCharset());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
 
         try {
             // Etapa 1: Resumo criptográfico
             etapa1(docBytes);
             System.out.println("Etapa 1 success!");
         } catch (EtapaDesafioException e) {
-            System.out.println(String.format("Etapa 1 error: %s\nEtapa 1 failed.\n\n", e.getMessage()));
+            System.out.printf("Etapa 1 error: %s\nEtapa 1 failed.\n\n%n", e.getMessage());
         }
-
-        InputStream pkcs12InputStream = main.getResourceStream("pkcs12/desafio.p12");
 
         try {
             // Etapa 2: Realizar uma assinatura digital
-            signature = etapa2(docBytes, pkcs12InputStream, keystoreCertAlias, privateKeyPassword.toCharArray());
+            signature = etapa2(docBytes, pkcs12Bytes, keystoreCertAlias, privateKeyPassword.toCharArray());
             System.out.println("Etapa 2 success!");
         } catch (EtapaDesafioException e) {
-            System.out.println(String.format("Etapa 2 error: %s\nEtapa 2 failed. Skipping Etapa 3 due to Etapa 2 error...\nTerminating program.\n\n", e.getMessage()));
+            System.out.printf("Etapa 2 error: %s\nEtapa 2 failed. Skipping Etapa 3 due to Etapa 2 error...\nTerminating program.\n\n%n", e.getMessage());
             System.exit(1);
         }
 
@@ -64,42 +72,53 @@ public class Main {
             etapa3(signature);
             System.out.println("Etapa 3 success!");
         } catch (EtapaDesafioException e) {
-            System.out.println(String.format("Etapa 3 error: %s\nEtapa 3 failed.\n\n", e.getMessage()));
+            System.out.printf("Etapa 3 error: %s\nEtapa 3 failed.\n\n%n", e.getMessage());
         }
     }
 
-    private static void etapa1(byte[] data) throws EtapaDesafioException {
+    private static void etapa1(byte[] docBytes) throws EtapaDesafioException {
 
-        byte[] digest = SigningUtilities.digestData(data);
+        byte[] digest;
+        try {
+            digest = SigningUtilities.digestData(docBytes);
+        } catch (IOException e) {
+            throw new EtapaDesafioException("Could read the document's byte.", e);
+        }
+
         String digestHexString = Hex.toHexString(digest);
 
+        File digestOutputFile = FileUtils.getFile("output/doc_hex_digest.txt");
+
         try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter("output/doc_hex_digest.txt"));
-            System.out.println(digestHexString);
-            writer.write(digestHexString);
-            writer.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+            FileUtils.writeStringToFile(digestOutputFile, digestHexString, Charset.defaultCharset());
+        } catch (IOException e) {
+            throw new EtapaDesafioException("An error occured while writing the digest hexstring to the file.", e);
         }
     }
 
-    private static byte[] etapa2(byte[] dataToSign, InputStream pkcs12InputStream, String keystoreCertAlias, char[] privateKeyPassword) throws EtapaDesafioException {
-        SignerCertKey signerCertKey = SigningUtilities.loadCertKeyFromPKCS12(pkcs12InputStream, keystoreCertAlias, privateKeyPassword);
+    private static byte[] etapa2(byte[] fileBytes, byte[] pkcs12Bytes, String keystoreCertAlias, char[] privateKeyPassword) throws EtapaDesafioException {
+        SignerCertKey signerCertKey;
+        try {
+            signerCertKey = SigningUtilities.loadCertKeyFromPKCS12(pkcs12Bytes, keystoreCertAlias, privateKeyPassword);
+        } catch (IOException e) {
+            throw new EtapaDesafioException("Could not load keystore data. Check if the provided file is correct and if" +
+                    "password is correct.", e);
+        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+            throw new EtapaDesafioException("An internal error occurred while loading the PKCS#12 keystore.", e);
+        } catch (CertificateException e) {
+            throw new EtapaDesafioException("The certificate of the provided keystore could not be loaded.", e);
+        } catch (UnrecoverableKeyException e) {
+            throw new EtapaDesafioException("The private key of the provided keystore could not be recovered. The password could be incorrect.", e);
+        }
+
         X509Certificate signerCertificate = signerCertKey.getX509Certificate();
         PrivateKey signerKey = signerCertKey.getPrivateKey();
         byte[] signature;
 
+//        System.out.println(signerKey.toString());
+//        System.out.println(signerCertificate.toString());
         try {
-            pkcs12InputStream.close();
-        } catch (IOException e) {
-            throw new EtapaDesafioException("An error occurred when trying to close PKCS12 input stream", e);
-        }
-
-//        signerCertificate.checkValidity();
-        System.out.println(signerKey.toString());
-        System.out.println(signerCertificate.toString());
-        try {
-            signature = SigningUtilities.signData(dataToSign, signerKey, signerCertificate);
+            signature = SigningUtilities.signData(fileBytes, signerKey, signerCertificate);
         } catch (OperatorCreationException e) {
             throw new EtapaDesafioException("Internal error during signature operation.", e);
         } catch (CertificateEncodingException e) {
@@ -110,16 +129,14 @@ public class Main {
         }
 
         try {
-            FileOutputStream outputStream = new FileOutputStream("output/doc_signature.p7s");
-            outputStream.write(signature);
-            outputStream.close();
-            return signature;
-
-        } catch (FileNotFoundException e) {
-            throw new EtapaDesafioException("Could not create signature output file.", e);
-        } catch (IOException e) {
-            throw new EtapaDesafioException("An error occurred when trying to close PKCS12 input stream", e);
+            File docSignatureFile = FileUtils.getFile("output/doc_signature.p7s");
+            try (FileOutputStream docSignatureOutputStream = FileUtils.openOutputStream(docSignatureFile)) {
+                docSignatureOutputStream.write(signature);
+            } } catch (IOException e) {
+            throw new EtapaDesafioException("An error occurred while writing to signature file output stream.", e);
         }
+
+        return signature;
     }
 
     private static void etapa3(byte[] signature) throws EtapaDesafioException {
@@ -137,8 +154,9 @@ public class Main {
         }
     }
 
-    private InputStream getResourceStream(String resourceName) {
-        InputStream resourceInputStream = getClass().getClassLoader().getResourceAsStream(resourceName);
-        return resourceInputStream;
+    private byte[] getResourceBytes(String resourceName) throws IOException {
+        try (InputStream resourceStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            return resourceStream.readAllBytes();
+        }
     }
 }

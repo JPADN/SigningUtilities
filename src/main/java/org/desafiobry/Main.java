@@ -2,8 +2,12 @@ package org.desafiobry;
 
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.encoders.Hex;
 import org.desafiobry.signingutilities.SignerCertKey;
 import org.desafiobry.signingutilities.SigningUtilities;
@@ -28,14 +32,23 @@ public class Main {
 
     public static void main( String[] args )
     {
-        byte[] signature = null;
-
         Security.addProvider(new BouncyCastleProvider());
+        DigestCalculatorProvider digestProvider = null;
+
+        try {
+            digestProvider = new JcaDigestCalculatorProviderBuilder().setProvider("BC").build();
+        } catch (OperatorCreationException e) {
+            System.out.println("Could not build DigestCalculatorProvider from Bouncy Castle library");
+            System.exit(1);
+        }
 
         Main main = new Main();
+        SigningUtilities signingUtilities = new SigningUtilities(new SHA256Digest(), "SHA256WithRSA",
+                digestProvider);
 
         byte[] docBytes = null;
         byte[] pkcs12Bytes = null;
+        byte[] signature = null;
 
         try {
             docBytes = main.getResourceBytes("arquivos/doc.txt");
@@ -46,7 +59,7 @@ public class Main {
 
         try {
             // Etapa 1: Resumo criptográfico
-            etapa1(docBytes);
+            etapa1(signingUtilities, docBytes);
             System.out.println("Etapa 1 success!");
         } catch (EtapaDesafioException e) {
             System.out.printf("Etapa 1 error: %s\nEtapa 1 failed.\n\n%n", e.getMessage());
@@ -54,7 +67,7 @@ public class Main {
 
         try {
             // Etapa 2: Realizar uma assinatura digital
-            signature = etapa2(docBytes, pkcs12Bytes);
+            signature = etapa2(signingUtilities, docBytes, pkcs12Bytes);
             System.out.println("Etapa 2 success!");
         } catch (EtapaDesafioException e) {
             System.out.printf("Etapa 2 error: %s\nEtapa 2 failed. Skipping Etapa 3 due to Etapa 2 error...\nTerminating program.\n\n%n", e.getMessage());
@@ -70,11 +83,11 @@ public class Main {
         }
     }
 
-    private static void etapa1(byte[] docBytes) throws EtapaDesafioException {
+    private static void etapa1(SigningUtilities signingUtilities, byte[] docBytes) throws EtapaDesafioException {
 
         byte[] digest;
         try {
-            digest = SigningUtilities.digestData(docBytes);
+            digest = signingUtilities.digestData(docBytes);
         } catch (IOException e) {
             throw new EtapaDesafioException("Could read the document's byte.", e);
         }
@@ -90,7 +103,7 @@ public class Main {
         }
     }
 
-    private static byte[] etapa2(byte[] fileBytes, byte[] pkcs12Bytes) throws EtapaDesafioException {
+    private static byte[] etapa2(SigningUtilities signingUtilities, byte[] fileBytes, byte[] pkcs12Bytes) throws EtapaDesafioException {
         SignerCertKey signerCertKey;
         try {
             signerCertKey = SigningUtilities.loadCertKeyFromPKCS12(pkcs12Bytes, keystoreCertAlias, privateKeyPassword.toCharArray());
@@ -110,7 +123,7 @@ public class Main {
         byte[] signature;
 
         try {
-            signature = SigningUtilities.signData(fileBytes, signerKey, signerCertificate);
+            signature = signingUtilities.signData(fileBytes, signerKey, signerCertificate);
         } catch (OperatorCreationException e) {
             throw new EtapaDesafioException("Internal error during signature operation.", e);
         } catch (CertificateEncodingException e) {

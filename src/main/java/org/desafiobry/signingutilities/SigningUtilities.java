@@ -18,6 +18,7 @@ import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
@@ -27,39 +28,49 @@ import org.desafiobry.exceptions.SigningException;
 
 public class SigningUtilities {
 
+    private SHA256Digest messageDigest;
+    private List<X509Certificate> certList;
+    private DigestCalculatorProvider digestProvider;
+    private String signingAlgorithm;
+
+    public SigningUtilities(SHA256Digest messageDigest, String signingAlgorithm, DigestCalculatorProvider digestProvider) {
+        this.messageDigest = messageDigest;
+        this.signingAlgorithm = signingAlgorithm;
+        this.digestProvider = digestProvider;
+
+        this.certList = new ArrayList<X509Certificate>();
+    }
+
     // digestData produz um resumo criptográfico de 'data' utilizando o algoritmo SHA-256
-    public static byte[] digestData(byte[] data) throws IOException {
+    public byte[] digestData(byte[] data) throws IOException {
 
-        SHA256Digest messageDigest = new SHA256Digest();
+        byte[] digested = new byte[this.messageDigest.getDigestSize()];
 
-        byte[] digested = new byte[messageDigest.getDigestSize()];
+        this.messageDigest.update(data, 0, data.length);
 
-        messageDigest.update(data, 0, data.length);
-        messageDigest.doFinal(digested, 0);
+        // doFinal calls reset after finishing, resetting the digest back to it's initial state
+        this.messageDigest.doFinal(digested, 0);
 
         return digested;
     }
 
     // signData assina o conteúdo de 'data' utilizando a chave privada 'signerKey' e o certificado correspondente 'signerCertificate'
-    public static byte[] signData(byte[] data, PrivateKey signerKey, X509Certificate signerCertificate) throws OperatorCreationException, CertificateEncodingException, SigningException {
-        List<X509Certificate> certList= new ArrayList<X509Certificate>();
-        certList.add(signerCertificate);
+    public byte[] signData(byte[] data, PrivateKey signerKey, X509Certificate signerCertificate) throws OperatorCreationException, CertificateEncodingException, SigningException {
+        this.certList.clear();
+        this.certList.add(signerCertificate);
 
         CMSTypedData cmsData = new CMSProcessableByteArray(data);
         CMSSignedDataGenerator cmsGenerator = new CMSSignedDataGenerator();
         byte[] signature;
 
-        // Operações relacionadas ao CMSSignedDataGenerator
-
-        // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo RSA (utilizando algoritmo de hash SHA-256) com a chave privada 'signerKey'
-        ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(signerKey);
+        // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo especificado por 'signingAlgorithm' com a chave privada 'signerKey'
+        ContentSigner contentSigner = new JcaContentSignerBuilder(this.signingAlgorithm).build(signerKey);
 
         // Adicionando informações do assinante: o objeto contentSigner (que contém a chave privada signerKey) e o seu certificado 'signerCertificate'.
         // "BC" corresponde ao Security Provider "Bouncy Castle"
-        cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner, signerCertificate));
+        cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(this.digestProvider).build(contentSigner, signerCertificate));
 
         Store certs = new JcaCertStore(certList);
-
         try {
             // Adicionando os certificados que serão anexados à assinatura
             cmsGenerator.addCertificates(certs);

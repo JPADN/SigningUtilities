@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="signingutilities:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/signingutilities_jar</output-path>
+    <root id="archive" name="signingutilities.jar">
+      <element id="module-output" name="signingutilities" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.26/lombok-1.18.26.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/commons-io/commons-io/2.11.0/commons-io-2.11.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/bouncycastle/bcpkix-jdk15on/1.58/bcpkix-jdk15on-1.58.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/bouncycastle/bcprov-jdk15on/1.58/bcprov-jdk15on-1.58.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

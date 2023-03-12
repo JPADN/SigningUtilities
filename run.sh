@@ -1,5 +1,5 @@
-cd out/artifacts/SigningUtilities_jar
-zip -d SigningUtilities.jar META-INF/*.RSA META-INF/*.DSA META-INF/*.SF
+cd out/artifacts/signingutilities_jar
+zip -d signingutilities.jar META-INF/*.RSA META-INF/*.DSA META-INF/*.SF
 
 cd ../../..
 

@@ -35,6 +35,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.0.4</version>
                 <configuration>
                     <mainClass>org.desafiobry.Main</mainClass>
                     <layout>JAR</layout>

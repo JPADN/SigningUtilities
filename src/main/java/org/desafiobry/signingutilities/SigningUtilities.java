@@ -26,14 +26,15 @@ import org.desafiobry.exceptions.SignatureVerificationException;
 import org.desafiobry.exceptions.SigningException;
 
 public class SigningUtilities {
-    private Digest messageDigest;
-    private List<X509Certificate> certList;
-    private JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder;
-    private JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder;
-    private JcaContentSignerBuilder jcaContentSignerBuilder;
+    private final Digest messageDigest;
+    private final List<X509Certificate> certList;
+    private final JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder;
+    private final JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder;
+    private final JcaContentSignerBuilder jcaContentSignerBuilder;
 
     public SigningUtilities(SHA256Digest messageDigest, JcaContentSignerBuilder jcaContentSignerBuilder,
-                            JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder, JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder) {
+                            JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder,
+                            JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder) {
         this.messageDigest = messageDigest;
         this.jcaContentSignerBuilder = jcaContentSignerBuilder;
         this.jcaSignerInfoGeneratorBuilder = jcaSignerInfoGeneratorBuilder;
@@ -42,7 +43,7 @@ public class SigningUtilities {
         this.certList = new ArrayList<X509Certificate>();
     }
 
-    // digestData produz um resumo criptográfico de 'data' utilizando o algoritmo SHA-256
+    // digestData produz um resumo criptográfico de 'data' utilizando o algoritmo especificado em messageDigest
     public byte[] digestData(byte[] data) throws IOException {
 
         byte[] digested = new byte[this.messageDigest.getDigestSize()];
@@ -64,10 +65,12 @@ public class SigningUtilities {
         CMSSignedDataGenerator cmsGenerator = new CMSSignedDataGenerator();
         byte[] signature;
 
-        // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo especificado por 'signingAlgorithm' com a chave privada 'signerKey'
+        // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo especificado em
+        // this.jcaContentSignerBuilder com a chave privada 'signerKey'
         ContentSigner contentSigner = this.jcaContentSignerBuilder.build(signerKey);
 
-        // Adicionando informações do assinante: o objeto contentSigner (que contém a chave privada signerKey) e o seu certificado 'signerCertificate'.
+        // Adicionando informações do assinante: o objeto contentSigner (que contém a chave privada signerKey) e o
+        // seu certificado 'signerCertificate'.
         // "BC" corresponde ao Security Provider "Bouncy Castle"
         cmsGenerator.addSignerInfoGenerator(this.jcaSignerInfoGeneratorBuilder.build(contentSigner, signerCertificate));
 
@@ -86,9 +89,9 @@ public class SigningUtilities {
         return signature;
     }
 
-    // verifySignature verificate a assinatura CMS em data, retornando true para assinaturas válidas e false para assinaturas inválidas.
-    public boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException,
-            OperatorCreationException, SignatureVerificationException {
+    // verifySignature verificate a assinatura CMS em data, retornando true para assinaturas válidas e false para
+    // assinaturas inválidas.
+    public boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException, OperatorCreationException, SignatureVerificationException {
 
         CMSSignedData cmsSignedData;
 
@@ -101,7 +104,8 @@ public class SigningUtilities {
         // Obtendo todos os assinantes da mensagem assinada cmsSignedData
         SignerInformationStore signers = cmsSignedData.getSignerInfos();
 
-        // Como já espera-se que seja apenas um assinante, não vamos iterar a coleção inteira, apenas vamos recuperar o primeiro elemento desta.
+        // Como já espera-se que seja apenas um assinante, não vamos iterar a coleção inteira, apenas vamos recuperar o
+        // primeiro elemento desta.
         SignerInformation signer = signers.getSigners().iterator().next();
 
         // Recuperando o certificado X509 da Store retornada por getCertificates que corresponde ao SID do assinante.

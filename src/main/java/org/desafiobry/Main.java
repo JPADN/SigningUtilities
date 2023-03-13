@@ -91,7 +91,7 @@ public class Main {
         try {
             digest = signingUtilities.digestData(docBytes);
         } catch (IOException e) {
-            throw new EtapaDesafioException("Could read the document's byte.", e);
+            throw new EtapaDesafioException("Could not read the document's byte.", e);
         }
 
         String digestHexString = Hex.toHexString(digest);

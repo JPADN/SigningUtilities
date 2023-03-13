@@ -16,27 +16,28 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
+import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
 import org.desafiobry.exceptions.SignatureVerificationException;
 import org.desafiobry.exceptions.SigningException;
 
 public class SigningUtilities {
-
-    private SHA256Digest messageDigest;
+    private Digest messageDigest;
     private List<X509Certificate> certList;
-    private DigestCalculatorProvider digestProvider;
-    private String signingAlgorithm;
+    private JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder;
+    private JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder;
+    private JcaContentSignerBuilder jcaContentSignerBuilder;
 
-    public SigningUtilities(SHA256Digest messageDigest, String signingAlgorithm, DigestCalculatorProvider digestProvider) {
+    public SigningUtilities(SHA256Digest messageDigest, JcaContentSignerBuilder jcaContentSignerBuilder,
+                            JcaSignerInfoGeneratorBuilder jcaSignerInfoGeneratorBuilder, JcaSimpleSignerInfoVerifierBuilder jcaSimpleSignerInfoVerifierBuilder) {
         this.messageDigest = messageDigest;
-        this.signingAlgorithm = signingAlgorithm;
-        this.digestProvider = digestProvider;
+        this.jcaContentSignerBuilder = jcaContentSignerBuilder;
+        this.jcaSignerInfoGeneratorBuilder = jcaSignerInfoGeneratorBuilder;
+        this.jcaSimpleSignerInfoVerifierBuilder = jcaSimpleSignerInfoVerifierBuilder;
 
         this.certList = new ArrayList<X509Certificate>();
     }
@@ -64,11 +65,11 @@ public class SigningUtilities {
         byte[] signature;
 
         // Construindo um objeto do tipo ContentSigner para assinaturas com o algoritmo especificado por 'signingAlgorithm' com a chave privada 'signerKey'
-        ContentSigner contentSigner = new JcaContentSignerBuilder(this.signingAlgorithm).build(signerKey);
+        ContentSigner contentSigner = this.jcaContentSignerBuilder.build(signerKey);
 
         // Adicionando informações do assinante: o objeto contentSigner (que contém a chave privada signerKey) e o seu certificado 'signerCertificate'.
         // "BC" corresponde ao Security Provider "Bouncy Castle"
-        cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(this.digestProvider).build(contentSigner, signerCertificate));
+        cmsGenerator.addSignerInfoGenerator(this.jcaSignerInfoGeneratorBuilder.build(contentSigner, signerCertificate));
 
         Store certs = new JcaCertStore(certList);
         try {
@@ -86,7 +87,7 @@ public class SigningUtilities {
     }
 
     // verifySignature verificate a assinatura CMS em data, retornando true para assinaturas válidas e false para assinaturas inválidas.
-    public static boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException,
+    public boolean verifySignature(byte[] data) throws CMSException, IOException, CertificateException,
             OperatorCreationException, SignatureVerificationException {
 
         CMSSignedData cmsSignedData;
@@ -112,7 +113,7 @@ public class SigningUtilities {
         try {
             // Fazendo a verificação da assinatura constante no objeto signer (tipo SignerInformation) com o certificado X509 (visto que
             // este contem a chave pública para verificação).
-            return signer.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certHolder));
+            return signer.verify(this.jcaSimpleSignerInfoVerifierBuilder.build(certHolder));
         } catch (CMSException e) {
             throw new SignatureVerificationException("An error occurred while verifying the signature.", e);
         }

@@ -2,6 +2,8 @@ package org.desafiobry;
 
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
+import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.DigestCalculatorProvider;
@@ -43,8 +45,8 @@ public class Main {
         }
 
         Main main = new Main();
-        SigningUtilities signingUtilities = new SigningUtilities(new SHA256Digest(), "SHA256WithRSA",
-                digestProvider);
+        SigningUtilities signingUtilities = new SigningUtilities(new SHA256Digest(), new JcaContentSignerBuilder("SHA256WithRSA"),
+                new JcaSignerInfoGeneratorBuilder(digestProvider), new JcaSimpleSignerInfoVerifierBuilder());
 
         byte[] docBytes = null;
         byte[] pkcs12Bytes = null;
@@ -76,7 +78,7 @@ public class Main {
 
         try {
             // Etapa 3: Verificar a assinatura gerada
-            etapa3(signature);
+            etapa3(signingUtilities, signature);
             System.out.println("Etapa 3 success!");
         } catch (EtapaDesafioException e) {
             System.out.printf("Etapa 3 error: %s\nEtapa 3 failed.\n\n%n", e.getMessage());
@@ -94,7 +96,7 @@ public class Main {
 
         String digestHexString = Hex.toHexString(digest);
 
-        File digestOutputFile = FileUtils.getFile("output/doc_hex_digest.txt");
+        File digestOutputFile = FileUtils.getFile("etapas_1_2_output/doc_hex_digest.txt");
 
         try {
             FileUtils.writeStringToFile(digestOutputFile, digestHexString, Charset.defaultCharset());
@@ -134,8 +136,8 @@ public class Main {
         }
 
         try {
-            // Escrevendo a assinatura gerada no arquivo output/doc_signature.p7s
-            File docSignatureFile = FileUtils.getFile("output/doc_signature.p7s");
+            // Escrevendo a assinatura gerada no arquivo etapas_1_2_output/doc_signature.p7s
+            File docSignatureFile = FileUtils.getFile("etapas_1_2_output/doc_signature.p7s");
             try (FileOutputStream docSignatureOutputStream = FileUtils.openOutputStream(docSignatureFile)) {
                 docSignatureOutputStream.write(signature);
             } } catch (IOException e) {
@@ -145,9 +147,9 @@ public class Main {
         return signature;
     }
 
-    private static void etapa3(byte[] signature) throws EtapaDesafioException {
+    private static void etapa3(SigningUtilities signingUtilities, byte[] signature) throws EtapaDesafioException {
         try {
-            boolean validSignature = SigningUtilities.verifySignature(signature);
+            boolean validSignature = signingUtilities.verifySignature(signature);
             if (validSignature) {
                 System.out.println("Etapa 3 result: true");
             } else {
